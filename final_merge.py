@@ -1,7 +1,7 @@
 # final_merge.py
 import pandas as pd
 
-PHASE2_PATH = "phase2_scored_drugs_v3.csv"  # change if you use v3 etc
+PHASE2_PATH = "phase2/outputs/phase2_scored_drugs.csv" 
 PHASE3_PATH = "phase3/outputs/phase3_lit_evidence.csv"
 OUT_PATH    = "final_ranked_candidates.csv"
 
@@ -32,11 +32,7 @@ def main():
 
     # ---- pick phase2 score column ----
     # use the best available
-    if "phase2_score_v3" in p2.columns:
-        p2_score_col = "phase2_score_v3"
-    elif "phase2_score_v2" in p2.columns:
-        p2_score_col = "phase2_score_v2"
-    elif "phase2_score" in p2.columns:
+    if "phase2_score" in p2.columns:
         p2_score_col = "phase2_score"
     else:
         raise ValueError("No phase2 score column found in Phase 2 CSV.")

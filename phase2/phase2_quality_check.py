@@ -1,7 +1,7 @@
 import pandas as pd
 import re
 
-df = pd.read_csv("phase2_scored_drugs_v3.csv")
+df = pd.read_csv("outputs/phase2_scored_drugs.csv")
 
 print("Total drugs:", len(df))
 print("Non-zero:", (df["phase2_score"] > 0).sum())
@@ -14,7 +14,7 @@ print("Has ACHE:", nonzero["has_ACHE"].mean(), "(fraction)")
 
 print("\nTop 30 (current scoring):")
 print(df.sort_values("phase2_score", ascending=False).head(30)[
-    ["drug_name", "num_targets", "num_ad_targets", "ad_hit_targets", "phase2_score"]
+    ["compound_name", "num_targets_moa", "ad_hit_targets", "phase2_score"]
 ])
 
 # 2) Flag likely non-drugs / junk names
@@ -30,17 +30,17 @@ def looks_junky(name: str) -> bool:
         return True
     return False
 
-df["junk_name"] = df["drug_name"].apply(looks_junky)
+df["junk_name"] = df["compound_name"].apply(looks_junky)
 
 print("\nJunk-name drugs in top 100:",
       df.sort_values("phase2_score", ascending=False).head(100)["junk_name"].mean())
 
 # 3) Filtered top list (more credible)
-filtered = df[(~df["junk_name"]) & (df["num_targets"] > 0) & (df["num_targets"] <= 50)].copy()
+filtered = df[(~df["junk_name"]) & (df["num_targets_moa"] > 0) & (df["num_targets_moa"] <= 50)].copy()
 
 print("\nFiltered top 30 (recommended shortlist):")
 print(filtered.sort_values("phase2_score", ascending=False).head(30)[
-    ["drug_name", "num_targets", "num_ad_targets", "ad_hit_targets", "phase2_score"]
+    ["compound_name", "num_targets_moa", "ad_hit_targets", "phase2_score"]
 ])
 
 print("\nDone.")

@@ -1,150 +1,221 @@
-# =========================
-# Phase 2 Scoring (FIXED)
-# =========================
-
-print("🚀 phase2_scoring.py started (with name normalization)")
+# Inputs:
+#   bbb_positive_drugs.csv
+#   chembl_drug_mechanism_curated.csv
+#   ad_genes_disgenet.csv
+#
+# Outputs:
+#   phase2_scored_drugs.csv
+#   phase2_report.txt
 
 import pandas as pd
 import re
 
-# --------------------------------------------------
-# Helper: normalize drug names
-# --------------------------------------------------
-def normalize_drug_name(name):
-    if pd.isna(name):
+def norm_name(x: str) -> str:
+    if pd.isna(x):
         return ""
-    name = name.lower()
-    name = re.sub(r"\(.*?\)", "", name)   # remove parentheses
-    name = re.sub(r"[^a-z0-9\s]", "", name)  # remove punctuation
-    name = re.sub(r"\s+", " ", name).strip()
-    return name
+    x = str(x).lower()
+    x = re.sub(r"\(.*?\)", "", x)
+    x = re.sub(r"[^a-z0-9\s]", " ", x)
+    x = re.sub(r"\s+", " ", x).strip()
+    return x
 
-# --------------------------------------------------
-# 1) Load CSVs
-# --------------------------------------------------
-bbb = pd.read_csv("bbb_positive_drugs.csv")
-dt  = pd.read_csv("drug_target_interactions.csv")
+print("🚀 Phase 2 v3 scoring started (pathology-focused)")
 
-print("BBB shape:", bbb.shape)
-print("Drug-target shape:", dt.shape)
+# --------------------------
+# 1) Load inputs
+# --------------------------
+bbb = pd.read_csv("../database/bbb_positive_drugs.csv")
+moa = pd.read_csv("../database/chembl_drug_mechanism_curated.csv")
+ad  = pd.read_csv("../database/ad_genes_disgenet.csv")
 
-# --------------------------------------------------
-# 2) Detect columns
-# --------------------------------------------------
-# BBB drug column
+# --------------------------
+# 2) Detect BBB drug column
+# --------------------------
 bbb_name_col = None
 for c in ["compound_name", "drug_name", "name"]:
     if c in bbb.columns:
         bbb_name_col = c
         break
 if bbb_name_col is None:
-    raise ValueError("No drug name column in BBB file")
+    raise SystemExit(f"❌ BBB file missing drug name column. Columns: {bbb.columns.tolist()}")
 
-# Drug-target name column
-dt_name_col = "drug_name"
-if dt_name_col not in dt.columns:
-    raise ValueError("drug_name column missing in drug_target_interactions.csv")
+bbb["drug_norm"] = bbb[bbb_name_col].apply(norm_name)
 
-# Target column
-target_col = None
-for c in ["target_gene", "gene_symbol", "target_name", "target"]:
-    if c in dt.columns:
-        target_col = c
-        break
-if target_col is None:
-    raise ValueError("No target column found")
+if "drug_name" not in moa.columns:
+    raise SystemExit(f"❌ chembl_drug_mechanism_curated.csv missing drug_name. Columns: {moa.columns.tolist()}")
 
-print("BBB drug column:", bbb_name_col)
-print("DT drug column:", dt_name_col)
-print("Target column:", target_col)
+moa["drug_norm"] = moa["drug_name"].apply(norm_name)
 
-# --------------------------------------------------
-# 3) Normalize drug names (CRITICAL FIX)
-# --------------------------------------------------
-bbb["drug_norm"] = bbb[bbb_name_col].apply(normalize_drug_name)
-dt["drug_norm"]  = dt[dt_name_col].apply(normalize_drug_name)
+# Choose best target identifier: gene symbol if present, else target name
+moa["target_gene"] = moa.get("target_gene", "").fillna("").astype(str).str.strip()
+moa["target_name"] = moa.get("target_name", "").fillna("").astype(str).str.strip()
 
-# --------------------------------------------------
-# 4) Alzheimer target genes
-# --------------------------------------------------
-alz_genes = {
-    "APP","BACE1","PSEN1","PSEN2","ADAM10",
-    "MAPT","GSK3B","CDK5","MARK4",
-    "TNF","IL1B","IL6","TREM2","CSF1R",
-    "APOE","CLU","BIN1",
-    "ACHE","GRIN2B",
-    "SOD1","SOD2","NFE2L2"
-}
+moa["target_best"] = moa["target_gene"]
+mask_empty = moa["target_best"].eq("")
+moa.loc[mask_empty, "target_best"] = moa.loc[mask_empty, "target_name"]
 
-# Normalize target names → genes (lightweight)
-name_to_gene = {
-    "amyloid beta a4 protein": "APP",
-    "beta secretase 1": "BACE1",
-    "tau protein": "MAPT",
-    "glycogen synthase kinase 3 beta": "GSK3B",
-    "cyclin dependent kinase 5": "CDK5",
-    "tumor necrosis factor": "TNF",
-    "interleukin 1 beta": "IL1B",
-    "interleukin 6": "IL6",
-    "triggering receptor expressed on myeloid cells 2": "TREM2",
-    "colony stimulating factor 1 receptor": "CSF1R",
-    "apolipoprotein e": "APOE",
-    "acetylcholinesterase": "ACHE",
-}
+moa["t_upper"] = moa["target_best"].astype(str).str.upper()
 
-def normalize_target(t):
-    t = str(t).lower().strip()
-    return name_to_gene.get(t, t)
+# AD gene set (broad)
+ad_genes_upper = set(ad["gene_symbol"].astype(str).str.strip().str.upper().tolist())
 
-dt["target_norm"] = dt[target_col].apply(normalize_target)
+# --------------------------
+# 3) Define pathology-focused modules
+# --------------------------
+# Core disease-modifying modules
+AMYLOID  = {"APP","BACE1","PSEN1","PSEN2","ADAM10"}
+TAU      = {"MAPT","GSK3B","CDK5","MARK4","CSNK1D","CSNK1E"}  # add casein kinases (tau-related)
+MICROGLIA= {"TREM2","CSF1R","TYROBP","SPI1"}                  # microglia/immune genetics
+LIPID    = {"APOE","CLU","ABCA7","SORL1"}
 
-# --------------------------------------------------
-# 5) Build drug → target map (NOW WILL MATCH)
-# --------------------------------------------------
-print("Building drug → target map...")
-drug_to_targets = (
-    dt.groupby("drug_norm")["target_norm"]
-    .apply(lambda s: set(x for x in s if x))
-    .to_dict()
+CORE = AMYLOID | TAU | MICROGLIA | LIPID
+
+# Secondary supportive modules (still relevant, lower weight)
+INFLAM = {"TNF","IL1B","IL6","NFKB1","PTGS2"}
+MITO_OX= {"NFE2L2","SOD1","SOD2","PPARGC1A","PINK1","PARK7"}
+
+SECONDARY = INFLAM | MITO_OX
+
+# Symptomatic / nonspecific CNS targets that we DO NOT want to dominate Phase 2
+# (These are not "wrong", but they aren't disease-modifying signals.)
+EXCLUDE_PREFIXES = (
+    "DRD",   # dopamine receptors
+    "HTR",   # serotonin receptors
+    "ADRA",  # adrenergic receptors
+    "CHRM",  # muscarinic receptors
+    "GABR",  # GABA receptors
+    "OPR",   # opioid receptors
 )
-print("Drug map size:", len(drug_to_targets))
 
-# --------------------------------------------------
-# 6) Compute Phase 2 scores
-# --------------------------------------------------
-rows = []
+# Explicitly downweight or exclude a few frequent offenders
+EXCLUDE_EXACT = {
+    "NR3C1",  # glucocorticoid receptor: broad stress response
+    "CNR1",   # cannabinoid receptor 1
+}
 
-for _, row in bbb.iterrows():
-    drug = row[bbb_name_col]
-    drug_norm = row["drug_norm"]
+# Symptomatic Alzheimer target (keep, but low weight)
+LOW_SYMP = {"ACHE"}
 
-    targets = drug_to_targets.get(drug_norm, set())
-    ad_hits = targets.intersection(alz_genes)
+def is_excluded_target(t: str) -> bool:
+    t = str(t).upper().strip()
+    if t in EXCLUDE_EXACT:
+        return True
+    return any(t.startswith(p) for p in EXCLUDE_PREFIXES)
 
-    rows.append({
-        "drug_name": drug,
-        "num_targets": len(targets),
-        "num_ad_targets": len(ad_hits),
-        "ad_hit_targets": ";".join(sorted(ad_hits)) if ad_hits else "",
-        "ad_target_ratio": len(ad_hits) / max(len(targets), 1)
-    })
+def target_weight(t: str) -> float:
+    t = str(t).upper().strip()
 
-feat = pd.DataFrame(rows)
+    if is_excluded_target(t):
+        return 0.0
 
-# --------------------------------------------------
-# 7) Final Phase 2 score
-# --------------------------------------------------
-if "bbb_score" in bbb.columns:
-    feat["phase2_score"] = 0.5*feat["ad_target_ratio"] + 0.5*bbb["bbb_score"].fillna(0)
+    if t in CORE:
+        return 5.0
+
+    if t in SECONDARY:
+        return 2.0
+
+    if t in LOW_SYMP:
+        return 0.25
+
+    # Broad AD genes from DisGeNET: very low weight (prevents NR3C1/DRD-like dominance)
+    if t in ad_genes_upper:
+        return 0.5
+
+    return 0.0
+
+moa["w"] = moa["t_upper"].apply(target_weight)
+moa["is_core_hit"] = moa["t_upper"].isin(CORE)
+
+# --------------------------
+# 4) Drug-level features
+# --------------------------
+# Total distinct targets in curated MOA set
+num_targets_moa = moa.groupby("drug_norm")["t_upper"].nunique()
+
+# Weighted AD score across targets
+moa_w = moa[moa["w"] > 0].copy()
+ad_weight_sum = moa_w.groupby("drug_norm")["w"].sum()
+
+# Core hits count (STRICT)
+core_hits = moa.groupby("drug_norm")["is_core_hit"].sum()
+
+# List of hit targets (only those with w>0)
+ad_hit_targets = moa_w.groupby("drug_norm")["t_upper"].apply(lambda s: ";".join(sorted(set(s))))
+
+features = pd.DataFrame({
+    "drug_norm": num_targets_moa.index,
+    "num_targets_moa": num_targets_moa.values
+}).merge(
+    ad_weight_sum.rename("ad_weight_sum"),
+    on="drug_norm",
+    how="left"
+).merge(
+    core_hits.rename("num_core_hits"),
+    on="drug_norm",
+    how="left"
+).merge(
+    ad_hit_targets.rename("ad_hit_targets"),
+    on="drug_norm",
+    how="left"
+)
+
+features["ad_weight_sum"]  = features["ad_weight_sum"].fillna(0.0)
+features["num_core_hits"]  = features["num_core_hits"].fillna(0).astype(int)
+features["ad_hit_targets"] = features["ad_hit_targets"].fillna("")
+
+# --------------------------
+# 5) Merge with BBB list
+# --------------------------
+out = bbb.merge(features, on="drug_norm", how="left")
+out["num_targets_moa"] = out["num_targets_moa"].fillna(0).astype(int)
+out["ad_weight_sum"]   = out["ad_weight_sum"].fillna(0.0)
+out["num_core_hits"]   = out["num_core_hits"].fillna(0).astype(int)
+out["ad_hit_targets"]  = out["ad_hit_targets"].fillna("")
+out["drug_name_out"]   = out[bbb_name_col].astype(str)
+
+# --------------------------
+# 6) Final scoring rules (pathology-focused)
+# --------------------------
+# Normalize by number of targets to avoid promiscuous domination
+out["ad_score_norm"] = out["ad_weight_sum"] / out["num_targets_moa"].clip(lower=1)
+
+# Hard requirement: must hit at least 1 core pathology gene to score fully
+# Otherwise, heavily penalize (still keep a tiny score for secondary-only)
+out["core_gate"] = (out["num_core_hits"] > 0).astype(int)
+
+# You can tune these:
+CORE_MULTIPLIER = 1.0
+NONCORE_PENALTY = 0.05   # secondary-only gets 5% of score
+
+out["ad_score_gated"] = out["ad_score_norm"] * (
+    out["core_gate"] * CORE_MULTIPLIER + (1 - out["core_gate"]) * NONCORE_PENALTY
+)
+
+# Optionally include BBB score if you have it
+if "bbb_score" in out.columns:
+    out["phase2_score"] = 0.7 * out["ad_score_gated"] + 0.3 * out["bbb_score"].fillna(0)
 else:
-    feat["phase2_score"] = feat["ad_target_ratio"]
+    out["phase2_score"] = out["ad_score_gated"]
 
-feat = feat.sort_values("phase2_score", ascending=False)
+out = out.sort_values("phase2_score", ascending=False)
 
-# --------------------------------------------------
-# 8) Save output
-# --------------------------------------------------
-feat.to_csv("phase2_scored_drugs_v3.csv", index=False)
+# --------------------------
+# 7) Save outputs
+# --------------------------
+out.to_csv("outputs/phase2_scored_drugs.csv", index=False)
 
-print("✅ Phase 2 complete (FIXED)")
-print(feat.head(20))
+top = out.head(30)[["drug_name_out", "num_targets_moa", "num_core_hits", "ad_hit_targets", "phase2_score"]]
+
+with open("outputs/phase2_report.txt", "w", encoding="utf-8") as f:
+    f.write(f"Total BBB+ drugs: {len(out)}\n")
+    nonzero = (out["phase2_score"] > 0).sum()
+    f.write(f"Non-zero Phase2 v3 score: {nonzero} ({100*nonzero/len(out):.2f}%)\n")
+    f.write(f"Core-hit drugs (num_core_hits>0): {(out['num_core_hits']>0).sum()} ({100*(out['num_core_hits']>0).mean():.2f}%)\n\n")
+    f.write("Top 30 candidates:\n")
+    f.write(top.to_string(index=False))
+    f.write("\n")
+
+print("✅ Saved phase2_scored_drugs.csv")
+print("✅ Saved phase2_report.txt")
+print("\nTop 30 candidates:")
+print(top)

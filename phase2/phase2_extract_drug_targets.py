@@ -1,7 +1,7 @@
 import pandas as pd
 
-bbb = pd.read_csv("bbb_positive_drugs.csv")
-dt  = pd.read_csv("drug_target_interactions.csv")
+bbb = pd.read_csv("../database/bbb_positive_drugs.csv")
+dt  = pd.read_csv("../database/drug_target_interactions.csv")
 
 print("BBB file shape:", bbb.shape)
 print("Drug-target file shape:", dt.shape)
@@ -43,6 +43,8 @@ print("Using drug name column:", name_col)
 dt = dt.copy()
 
 # Standardize column names if needed
+if "target_gene" not in dt.columns and "target_name" in dt.columns:
+    dt = dt.rename(columns={"target_name": "target_gene"})
 if "target_gene" not in dt.columns and "gene_symbol" in dt.columns:
     dt = dt.rename(columns={"gene_symbol": "target_gene"})
 if "drug_name" not in dt.columns and "compound_name" in dt.columns:
@@ -91,7 +93,7 @@ else:
 
 out = out.sort_values("phase2_score", ascending=False)
 
-out.to_csv("phase2_scored_drugs_v3.csv", index=False)
-print("✅ Saved phase2_scored_drugs_v3.csv")
+out.to_csv("outputs/phase2_scored_drugs.csv", index=False)
+print("✅ Saved phase2_scored_drugs.csv")
 out.head(20)
 
