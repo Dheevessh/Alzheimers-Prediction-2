@@ -3,20 +3,19 @@
 import os
 
 # -------- Paths --------
-OUT_DIR = "phase3/outputs"
-CACHE_DIR = "phase3/cache"
+# Resolve paths relative to this config file's location
+CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CONFIG_DIR)
+
+# ---- Input list (Phase 2 output) ----
+BBB_CSV_PATH = os.path.join(PROJECT_ROOT, "phase2", "outputs", "phase2_scored_drugs.csv")
 
 # -------- Literature mining limits --------
 MAX_PAPERS_PER_DRUG = 50   # safe default (increase later if needed)
 
-
-# ---- Input list (Phase 1 output) ----
-BBB_CSV_PATH = "phase2_scored_drugs_v3.csv"
-
-
 # ---- Output/cache dirs ----
-OUT_DIR = os.path.join("phase3", "outputs")
-CACHE_DIR = os.path.join("phase3", "cache")
+OUT_DIR = os.path.join(PROJECT_ROOT, "phase3", "outputs")
+CACHE_DIR = os.path.join(PROJECT_ROOT, "phase3", "cache")
 
 # ---- Europe PMC API ----
 EUROPE_PMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"

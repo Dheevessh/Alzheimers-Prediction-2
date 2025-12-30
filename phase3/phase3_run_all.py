@@ -1,12 +1,21 @@
 # phase3/phase3_run_all.py
 import os
+import sys
 import pandas as pd
 from tqdm import tqdm
 
-from .config import BBB_CSV_PATH, OUT_DIR
-from .phase3_search import batch_fetch
-from .phase3_extract import extract_evidence
-from .phase3_score import aggregate_drug_scores
+# Handle both direct script execution and package imports
+try:
+    from .config import BBB_CSV_PATH, OUT_DIR
+    from .phase3_search import batch_fetch
+    from .phase3_extract import extract_evidence
+    from .phase3_score import aggregate_drug_scores
+except ImportError:
+    # Running as a direct script
+    from config import BBB_CSV_PATH, OUT_DIR
+    from phase3_search import batch_fetch
+    from phase3_extract import extract_evidence
+    from phase3_score import aggregate_drug_scores
 
 # Ensure output directory exists
 os.makedirs(OUT_DIR, exist_ok=True)

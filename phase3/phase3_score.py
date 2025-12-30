@@ -1,6 +1,10 @@
 # phase3/phase3_score.py
 import pandas as pd
-from .config import MODEL_WEIGHTS
+
+try:
+    from .config import MODEL_WEIGHTS
+except ImportError:
+    from config import MODEL_WEIGHTS
 
 # ----------------------------------
 # Research-tool / anesthetic penalties

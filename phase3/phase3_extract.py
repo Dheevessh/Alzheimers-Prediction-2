@@ -1,6 +1,9 @@
 # phase3/phase3_extract.py
 
-from .config import POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS, OUTCOME_KEYWORDS
+try:
+    from .config import POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS, OUTCOME_KEYWORDS
+except ImportError:
+    from config import POSITIVE_KEYWORDS, NEGATIVE_KEYWORDS, OUTCOME_KEYWORDS
 
 # Strict Alzheimer pathology terms
 AD_TERMS = [

@@ -5,7 +5,11 @@ import time
 import hashlib
 import requests
 from tqdm import tqdm
-from .config import CACHE_DIR, MAX_PAPERS_PER_DRUG
+
+try:
+    from .config import CACHE_DIR, MAX_PAPERS_PER_DRUG
+except ImportError:
+    from config import CACHE_DIR, MAX_PAPERS_PER_DRUG
 
 EPMC_API = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
