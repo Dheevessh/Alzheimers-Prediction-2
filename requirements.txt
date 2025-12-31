@@ -1,10 +1,11 @@
 pandas
 requests
+streamlit
+numpy
 tqdm
 beautifulsoup4
 lxml
 scikit-learn
-qc-B3DB
+B3DB
 joblib
-sqlite3
 plotly
