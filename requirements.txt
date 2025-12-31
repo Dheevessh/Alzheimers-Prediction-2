@@ -1,11 +1,6 @@
-pandas
+streamlit>=1.30
+pandas>=1.5
+numpy>=1.23
 requests
-streamlit
-numpy
 tqdm
-beautifulsoup4
-lxml
 scikit-learn
-B3DB
-joblib
-plotly
