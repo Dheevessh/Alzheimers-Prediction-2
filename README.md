@@ -1,4 +1,4 @@
-# 🧠 Alzheimer’s Drug Candidate Prioritization 
+# 🧠 AI-Driven Alzheimer’s Drug Discovery
 
 This project is an end-to-end **drug candidate prioritization pipeline** for Alzheimer’s disease.  
 It combines:
