@@ -1,17 +1,34 @@
-# Python
+# --- Python Fundamentals ---
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Large databases
+# --- Virtual Environments (Crucial to ignore) ---
+venv/
+env/
+.env
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+
+# --- Database & Data Files ---
 *.db
 *.sqlite
 
-# Phase 3 cache
+# --- Project Specific ---
+# Ignore the cache from the literature mining phase
 phase3/cache/
 
-# Jupyter
-.ipynb_checkpoints/
+# Optional: Ignore generated output CSVs if you want to keep the repo light
+# phase1/outputs/
+# phase2/outputs/
+# phase3/outputs/
+# final_ranked_candidates.csv
 
-# OS
+# --- IDE Settings (VS Code, PyCharm, etc) ---
+.vscode/
+.idea/
+
+# --- OS Metadata ---
 .DS_Store
 Thumbs.db
